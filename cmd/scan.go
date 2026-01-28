@@ -5,6 +5,7 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+	"github.com/wangweicheng7/devclean/internal/config"
 	"github.com/wangweicheng7/devclean/internal/scanner"
 )
 
@@ -14,7 +15,11 @@ var scanCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Platform: %s\n\n", runtime.GOOS)
 
-		s := scanner.New(scanner.PlatformRules())
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+		s := scanner.New(scanner.PlatformRules(), cfg.Ignore)
 		results, err := s.Scan()
 		if err != nil {
 			return err

@@ -12,11 +12,15 @@ type Result struct {
 }
 
 type Scanner struct {
-	Rules []Rule
+	Rules  []Rule
+	Ignore []string
 }
 
-func New(rules []Rule) *Scanner {
-	return &Scanner{Rules: rules}
+func New(rules []Rule, ignore []string) *Scanner {
+	return &Scanner{
+		Rules:  rules,
+		Ignore: ignore,
+	}
 }
 
 func (s *Scanner) Scan() ([]Result, error) {
@@ -31,6 +35,10 @@ func (s *Scanner) Scan() ([]Result, error) {
 			matches, _ := filepath.Glob(expanded)
 
 			for _, m := range matches {
+				if isIgnored(m, s.Ignore) {
+					continue
+				}
+
 				info, err := os.Lstat(m)
 				if err != nil {
 					continue
@@ -118,5 +126,15 @@ func isUnsafePath(path string) bool {
 		return true
 	}
 
+	return false
+}
+
+func isIgnored(path string, ignore []string) bool {
+	for _, p := range ignore {
+		exp := expandPath(p)
+		if ok, _ := filepath.Match(exp, path); ok {
+			return true
+		}
+	}
 	return false
 }

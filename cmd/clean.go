@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wangweicheng7/devclean/internal/config"
 	"github.com/wangweicheng7/devclean/internal/scanner"
 )
 
@@ -17,19 +18,31 @@ var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean development junk files and directories",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s := scanner.New(scanner.PlatformRules())
+		cfg, err := config.Load()
+		if err != nil {
+			return err
+		}
+
+		s := scanner.New(scanner.PlatformRules(), cfg.Ignore)
 		results, err := s.Scan()
 		if err != nil {
 			return err
 		}
 
-		filter := map[string]bool{}
-		if ruleNames != "" {
-			for _, r := range strings.Split(ruleNames, ",") {
-				filter[strings.TrimSpace(r)] = true
+		enabled := map[string]bool{}
+		if len(cfg.Rules) > 0 {
+			for _, r := range cfg.Rules {
+				enabled[strings.ToLower(r)] = true
 			}
 		}
 
+		if ruleNames != "" {
+			enabled = map[string]bool{}
+			for _, r := range strings.Split(ruleNames, ",") {
+				enabled[strings.ToLower(strings.TrimSpace(r))] = true
+			}
+		}
+		filter := map[string]bool{}
 		var targets []scanner.Result
 		for _, r := range results {
 			if len(filter) == 0 || filterMatch(filter, r.Rule.Name) {
@@ -83,6 +96,18 @@ var cleanCmd = &cobra.Command{
 func filterMatch(filter map[string]bool, ruleName string) bool {
 	for k := range filter {
 		if strings.Contains(strings.ToLower(ruleName), strings.ToLower(k)) {
+			return true
+		}
+	}
+	return false
+}
+
+func ruleEnabled(enabled map[string]bool, name string) bool {
+	if len(enabled) == 0 {
+		return true
+	}
+	for k := range enabled {
+		if strings.Contains(strings.ToLower(name), k) {
 			return true
 		}
 	}
