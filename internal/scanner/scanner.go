@@ -61,6 +61,22 @@ func (s *Scanner) Scan() ([]Result, error) {
 	return results, nil
 }
 
+func (r Result) Clean(dryRun bool) error {
+	for _, p := range r.Paths {
+		// 再次安全校验
+		if isUnsafePath(p) {
+			continue
+		}
+
+		if dryRun {
+			continue
+		}
+
+		_ = os.RemoveAll(p)
+	}
+	return nil
+}
+
 func expandPath(path string) string {
 	if path[:1] == "~" {
 		home, _ := os.UserHomeDir()
@@ -84,4 +100,23 @@ func dirSize(path string) int64 {
 	})
 
 	return size
+}
+
+func isUnsafePath(path string) bool {
+	base := filepath.Base(path)
+	if base == ".git" {
+		return true
+	}
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return true
+	}
+
+	home, _ := os.UserHomeDir()
+	if abs == "/" || abs == home {
+		return true
+	}
+
+	return false
 }
