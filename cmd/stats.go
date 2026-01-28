@@ -10,6 +10,18 @@ import (
 	"github.com/wangweicheng7/devclean/internal/scanner"
 )
 
+type statsItem struct {
+	Rule  string `json:"rule"`
+	Paths int    `json:"paths"`
+	Size  int64  `json:"size"`
+}
+
+type statsOutput struct {
+	Rules     []statsItem `json:"rules"`
+	TotalSize int64       `json:"total_size"`
+}
+
+var statsJSON bool
 var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show disk usage statistics by rule",
@@ -23,6 +35,20 @@ var statsCmd = &cobra.Command{
 		results, err := s.Scan()
 		if err != nil {
 			return err
+		}
+		if statsJSON {
+			var out statsOutput
+
+			for _, r := range results {
+				out.Rules = append(out.Rules, statsItem{
+					Rule:  r.Rule.Name,
+					Paths: len(r.Paths),
+					Size:  r.Size,
+				})
+				out.TotalSize += r.Size
+			}
+
+			return printJSON(out)
 		}
 
 		if len(results) == 0 {
@@ -58,6 +84,7 @@ var statsCmd = &cobra.Command{
 }
 
 func init() {
+	statsCmd.Flags().BoolVar(&statsJSON, "json", false, "Output stats as JSON")
 	rootCmd.AddCommand(statsCmd)
 }
 
