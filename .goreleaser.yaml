@@ -10,24 +10,16 @@ version: 2
 
 project_name: devclean
 
-publish:
-  github:
-    concurrency: 1
-
 before:
   hooks:
     - go mod tidy
 
 builds:
   - id: devclean
-    main: .
     binary: devclean
-    env:
-      - CGO_ENABLED=0
     goos:
       - darwin
       - linux
-      - windows
     goarch:
       - amd64
       - arm64
@@ -46,7 +38,7 @@ brews:
     license: "MIT"
     install: |
       bin.install "devclean"
-    tap:
+    repository:
       owner: wangweicheng7
       name: homebrew-tap
       branch: main
