@@ -5,52 +5,104 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
 )
 
+type doctorCheck struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"` // ok | warn | error
+	Message string `json:"message,omitempty"`
+}
+
+type doctorOutput struct {
+	Checks []doctorCheck `json:"checks"`
+}
+
+var doctorJSON bool
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
 	Short: "Check dev environment health",
-	Run: func(cmd *cobra.Command, args []string) {
-		checkHomeWritable()
-		checkTmpSize()
-		checkGitConfig()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		checks := []doctorCheck{
+			checkHomeWritable(),
+			checkTmpSize(),
+			checkGitConfig(),
+		}
+
+		if doctorJSON {
+			return printJSON(doctorOutput{Checks: checks})
+		}
+
+		printHuman(checks)
+		return nil
 	},
 }
 
 func init() {
+	doctorCmd.Flags().BoolVar(&doctorJSON, "json", false, "Output result as JSON")
 	rootCmd.AddCommand(doctorCmd)
 }
 
-func checkHomeWritable() {
+func checkHomeWritable() doctorCheck {
 	home, _ := os.UserHomeDir()
 	test := filepath.Join(home, ".devclean_write_test")
 
 	if err := os.WriteFile(test, []byte("ok"), 0644); err != nil {
-		fmt.Println("❌ Home directory not writable")
-		return
+		return doctorCheck{
+			Name:    "home_writable",
+			Status:  "error",
+			Message: "home directory not writable",
+		}
 	}
 	_ = os.Remove(test)
-	fmt.Println("✔ Home directory writable")
+
+	return doctorCheck{
+		Name:   "home_writable",
+		Status: "ok",
+	}
 }
 
-func checkTmpSize() {
+func checkTmpSize() doctorCheck {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs("/tmp", &stat); err != nil {
-		return
+		return doctorCheck{
+			Name:    "tmp_size",
+			Status:  "warn",
+			Message: "cannot stat /tmp",
+		}
 	}
+
 	size := int64(stat.Blocks) * int64(stat.Bsize)
 	if size > 10*1024*1024*1024 {
-		fmt.Printf("⚠ /tmp is large (%s)\n", humanSize(size))
+		return doctorCheck{
+			Name:    "tmp_size",
+			Status:  "warn",
+			Message: fmt.Sprintf("/tmp is large (%s)", humanSize(size)),
+		}
+	}
+
+	return doctorCheck{
+		Name:   "tmp_size",
+		Status: "ok",
 	}
 }
 
-func checkGitConfig() {
+func checkGitConfig() doctorCheck {
 	out, err := exec.Command("git", "config", "--global", "gc.auto").Output()
 	if err != nil {
-		return
+		return doctorCheck{
+			Name:    "git_gc",
+			Status:  "warn",
+			Message: "git not configured or not found",
+		}
 	}
-	fmt.Printf("ℹ git gc.auto = %s", out)
+
+	return doctorCheck{
+		Name:    "git_gc",
+		Status:  "ok",
+		Message: fmt.Sprintf("gc.auto = %s", strings.TrimSpace(string(out))),
+	}
 }
