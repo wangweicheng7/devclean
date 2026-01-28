@@ -9,6 +9,18 @@ import (
 	"github.com/wangweicheng7/devclean/internal/scanner"
 )
 
+type scanItem struct {
+	Rule  string   `json:"rule"`
+	Size  int64    `json:"size"`
+	Paths []string `json:"paths"`
+}
+
+type scanOutput struct {
+	Results   []scanItem `json:"results"`
+	TotalSize int64      `json:"total_size"`
+}
+
+var scanJSON bool
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan development junk files and directories",
@@ -23,6 +35,20 @@ var scanCmd = &cobra.Command{
 		results, err := s.Scan()
 		if err != nil {
 			return err
+		}
+		if scanJSON {
+			var out scanOutput
+
+			for _, r := range results {
+				out.Results = append(out.Results, scanItem{
+					Rule:  r.Rule.Name,
+					Size:  r.Size,
+					Paths: r.Paths,
+				})
+				out.TotalSize += r.Size
+			}
+
+			return printJSON(out)
 		}
 
 		var total int64
@@ -44,5 +70,6 @@ var scanCmd = &cobra.Command{
 }
 
 func init() {
+	scanCmd.Flags().BoolVar(&scanJSON, "json", false, "Output scan result as JSON")
 	rootCmd.AddCommand(scanCmd)
 }
