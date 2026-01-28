@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wangweicheng7/devclean/internal/config"
+	"github.com/wangweicheng7/devclean/internal/rules"
 	"github.com/wangweicheng7/devclean/internal/scanner"
 )
 
@@ -25,13 +26,19 @@ var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Scan development junk files and directories",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(onlyRules) > 0 && len(excludeRules) > 0 {
+			return fmt.Errorf("--only and --exclude cannot be used together")
+		}
 		fmt.Printf("Platform: %s\n\n", runtime.GOOS)
 
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
-		s := scanner.New(scanner.PlatformRules(), cfg.Ignore)
+		allRules := scanner.PlatformRules()
+		filtered := rules.Filter(allRules, onlyRules, excludeRules)
+
+		s := scanner.New(filtered, cfg.Ignore)
 		results, err := s.Scan()
 		if err != nil {
 			return err

@@ -11,8 +11,10 @@ import (
 )
 
 var (
-	verbose bool
-	dryRun  bool
+	verbose      bool
+	dryRun       bool
+	onlyRules    []string
+	excludeRules []string
 )
 
 // rootCmd 是 devclean 的根命令
@@ -55,4 +57,19 @@ func init() {
 		false,
 		"show what would be cleaned without deleting",
 	)
+
+	rootCmd.PersistentFlags().StringSliceVar(
+		&onlyRules,
+		"only",
+		nil,
+		"Only enable specified rules (comma-separated)",
+	)
+
+	rootCmd.PersistentFlags().StringSliceVar(
+		&excludeRules,
+		"exclude",
+		nil,
+		"Exclude specified rules (comma-separated)",
+	)
+
 }

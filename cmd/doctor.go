@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -61,31 +60,6 @@ func checkHomeWritable() doctorCheck {
 
 	return doctorCheck{
 		Name:   "home_writable",
-		Status: "ok",
-	}
-}
-
-func checkTmpSize() doctorCheck {
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs("/tmp", &stat); err != nil {
-		return doctorCheck{
-			Name:    "tmp_size",
-			Status:  "warn",
-			Message: "cannot stat /tmp",
-		}
-	}
-
-	size := int64(stat.Blocks) * int64(stat.Bsize)
-	if size > 10*1024*1024*1024 {
-		return doctorCheck{
-			Name:    "tmp_size",
-			Status:  "warn",
-			Message: fmt.Sprintf("/tmp is large (%s)", humanSize(size)),
-		}
-	}
-
-	return doctorCheck{
-		Name:   "tmp_size",
 		Status: "ok",
 	}
 }

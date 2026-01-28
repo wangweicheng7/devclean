@@ -1,9 +1,12 @@
 module github.com/wangweicheng7/devclean
 
-go 1.23.4
+go 1.24.0
+
+toolchain go1.24.12
 
 require (
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/sys v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

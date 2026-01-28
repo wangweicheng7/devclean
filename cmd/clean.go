@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wangweicheng7/devclean/internal/config"
+	"github.com/wangweicheng7/devclean/internal/rules"
 	"github.com/wangweicheng7/devclean/internal/scanner"
 )
 
@@ -31,6 +32,9 @@ var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean development junk files and directories",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(onlyRules) > 0 && len(excludeRules) > 0 {
+			return fmt.Errorf("--only and --exclude cannot be used together")
+		}
 		if cleanJSON && !dryRun {
 			return fmt.Errorf("--json can only be used with --dry-run")
 		}
@@ -40,7 +44,9 @@ var cleanCmd = &cobra.Command{
 			return err
 		}
 
-		s := scanner.New(scanner.PlatformRules(), cfg.Ignore)
+		allRules := scanner.PlatformRules()
+		filtered := rules.Filter(allRules, onlyRules, excludeRules)
+		s := scanner.New(filtered, cfg.Ignore)
 		results, err := s.Scan()
 		if err != nil {
 			return err
