@@ -14,10 +14,27 @@ var (
 	ruleNames string
 )
 
+type cleanItem struct {
+	Rule  string   `json:"rule"`
+	Size  int64    `json:"size"`
+	Paths []string `json:"paths"`
+}
+
+type cleanOutput struct {
+	Items     []cleanItem `json:"items"`
+	TotalSize int64       `json:"total_size"`
+	DryRun    bool        `json:"dry_run"`
+}
+
+var cleanJSON bool
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean development junk files and directories",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if cleanJSON && !dryRun {
+			return fmt.Errorf("--json can only be used with --dry-run")
+		}
+
 		cfg, err := config.Load()
 		if err != nil {
 			return err
@@ -27,6 +44,21 @@ var cleanCmd = &cobra.Command{
 		results, err := s.Scan()
 		if err != nil {
 			return err
+		}
+		if cleanJSON {
+			var out cleanOutput
+			out.DryRun = true
+
+			for _, r := range results {
+				out.Items = append(out.Items, cleanItem{
+					Rule:  r.Rule.Name,
+					Size:  r.Size,
+					Paths: r.Paths,
+				})
+				out.TotalSize += r.Size
+			}
+
+			return printJSON(out)
 		}
 
 		enabled := map[string]bool{}
@@ -115,6 +147,7 @@ func ruleEnabled(enabled map[string]bool, name string) bool {
 }
 
 func init() {
+	cleanCmd.Flags().BoolVar(&cleanJSON, "json", false, "Output clean result as JSON (dry-run only)")
 	cleanCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "skip confirmation")
 	cleanCmd.Flags().StringVar(&ruleNames, "rule", "", "only clean specified rules (comma-separated)")
 	rootCmd.AddCommand(cleanCmd)
