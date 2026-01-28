@@ -10,6 +10,10 @@ version: 2
 
 project_name: devclean
 
+publish:
+  github:
+    concurrency: 1
+
 before:
   hooks:
     - go mod tidy
@@ -33,16 +37,22 @@ archives:
     name_template: >
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 checksum:
-  name_template: checksums.txt
+  disable: true # name_template: checksums.txt
 
 brews:
   - name: devclean
-    homepage: https://github.com/wangweicheng7/devclean
-    description: Developer environment cleaner for macOS / Linux
-    license: MIT
-    repository:
-      owner: wangweicheng7
-      name: homebrew-tap
+    description: "macOS-oriented developer environment cleanup tool"
+    homepage: "https://github.com/wangweicheng7/devclean"
+    license: "MIT"
     install: |
       bin.install "devclean"
+    tap:
+      owner: wangweicheng7
+      name: homebrew-tap
+      branch: main
+
+    commit_author:
+      name: goreleaserbot
+      email: goreleaser@users.noreply.github.com
+
 
