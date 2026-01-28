@@ -3,6 +3,8 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 )
 
 type Result struct {
@@ -24,46 +26,81 @@ func New(rules []Rule, ignore []string) *Scanner {
 }
 
 func (s *Scanner) Scan() ([]Result, error) {
-	var results []Result
+	if len(s.Rules) == 0 {
+		return nil, nil
+	}
 
-	for _, rule := range s.Rules {
-		var total int64
-		var hitPaths []string
+	workerCount := runtime.NumCPU()
+	if workerCount > len(s.Rules) {
+		workerCount = len(s.Rules)
+	}
 
-		for _, p := range rule.Paths {
-			expanded := expandPath(p)
-			matches, _ := filepath.Glob(expanded)
+	ruleCh := make(chan Rule)
+	resultCh := make(chan Result)
 
-			for _, m := range matches {
-				if isIgnored(m, s.Ignore) {
-					continue
+	var wg sync.WaitGroup
+
+	// workers
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for rule := range ruleCh {
+				var (
+					totalSize int64
+					paths     []string
+				)
+
+				for _, pattern := range rule.Paths {
+					matches, err := filepath.Glob(expandPath(pattern))
+					if err != nil {
+						continue
+					}
+
+					for _, m := range matches {
+						if isIgnored(m, s.Ignore) {
+							continue
+						}
+
+						info, err := os.Lstat(m)
+						if err != nil {
+							continue
+						}
+
+						totalSize += info.Size()
+						paths = append(paths, m)
+					}
 				}
 
-				info, err := os.Lstat(m)
-				if err != nil {
-					continue
-				}
-
-				// 不跟随 symlink
-				if info.Mode()&os.ModeSymlink != 0 {
-					continue
-				}
-
-				size := dirSize(m)
-				if size > 0 {
-					total += size
-					hitPaths = append(hitPaths, m)
+				if len(paths) > 0 {
+					resultCh <- Result{
+						Rule:  rule,
+						Size:  totalSize,
+						Paths: paths,
+					}
 				}
 			}
-		}
+		}()
+	}
 
-		if total > 0 {
-			results = append(results, Result{
-				Rule:  rule,
-				Size:  total,
-				Paths: hitPaths,
-			})
+	// feed rules
+	go func() {
+		for _, r := range s.Rules {
+			ruleCh <- r
 		}
+		close(ruleCh)
+	}()
+
+	// close result channel
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	// collect
+	var results []Result
+	for r := range resultCh {
+		results = append(results, r)
 	}
 
 	return results, nil
